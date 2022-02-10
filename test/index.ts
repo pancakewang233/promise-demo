@@ -7,7 +7,8 @@ class Promise2 {
     setTimeout(() => {
       this.callbacks.map(item => {
         if (typeof item[0] === "function") {
-          item[0].call(undefined, result)
+          const x = item[0].call(undefined, result)
+          item[2].resolveWith(x)
         }
         return item;
       })
@@ -19,7 +20,8 @@ class Promise2 {
     setTimeout(() => {
       this.callbacks.map(item => {
         if (typeof item[1] === "function") {
-          item[1].call(undefined, reason)
+          const x = item[1].call(undefined, reason)
+          item[2].resolveWith(x)
         }
         return item;
       })
@@ -39,8 +41,45 @@ class Promise2 {
     if (typeof fail === "function") {
       handle[1] = fail;
     }
+    handle[2] = new Promise2(() => { });
     this.callbacks.push(handle);
-    return undefined;
+    return handle[2];
+  }
+
+  resolveWith(x) {
+    if (this === x) {
+      return this.reject(new TypeError("不能调用自身"))
+    }
+    if (x instanceof Promise2) {
+      x.then((result) => {
+        this.resolve(result)
+      }, (reason) => {
+        this.reject(reason)
+      })
+    }
+    if (x instanceof Object) {
+      let then
+      try {
+        then = x.then
+      } catch (e) {
+        this.reject(e)
+      }
+      if (then instanceof Function) {
+        try {
+          x.then((y) => {
+            this.resolveWith(y)
+          }, (r) => {
+            this.reject(r)
+          })
+        } catch (e) {
+          this.reject(e)
+        }
+      } else {
+        this.resolve(x)
+      }
+    } else {
+      this.resolve(x)
+    }
   }
 }
 
